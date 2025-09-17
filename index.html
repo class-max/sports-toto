@@ -1,169 +1,85 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>화이트 계산기</title>
-  <style>
-    :root{
-      --bg:#ffffff; --panel:#f9f9f9; --accent:#2563eb; --muted:#6b7280; --glass: rgba(0,0,0,0.03);
-      --btn-radius:12px;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%; margin:0; padding:0;}
-    body{
-      font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background:#ffffff; display:flex; align-items:center; justify-content:center;
-      color:#111827;
-    }
-    .calculator{
-      width:360px; max-width:96vw; background:var(--panel); border-radius:18px; padding:16px;
-      box-shadow:0 6px 20px rgba(0,0,0,0.15); display:flex; flex-direction:column;
-    }
-    .display{
-      background:var(--glass); padding:12px; border-radius:12px; min-height:64px; display:flex; flex-direction:column; justify-content:center; margin-bottom:12px;
-    }
-    .expr{ color:var(--muted); font-size:14px; min-height:18px; word-break:break-all }
-    .result{ font-size:28px; font-weight:600; margin-top:4px; text-align:right }
-    .keys{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px }
-    button{
-      border:0; padding:12px; border-radius:12px; font-size:16px; cursor:pointer; color:#111827; background:#ffffff;
-      box-shadow:0 3px 6px rgba(0,0,0,0.1);
-    }
-    button.op{ background:linear-gradient(180deg,#fde68a,#facc15); color:#111827 }
-    button.fn{ background:#f3f4f6; color:var(--muted); box-shadow:none; border:1px solid #e5e7eb; }
-    button.equals{ grid-column:span 2; background:linear-gradient(180deg,var(--accent),#3b82f6); color:white; font-weight:700 }
-    button:active{ transform:translateY(1px) }
-    @media (prefers-reduced-motion: no-preference){ button{ transition:transform .06s ease, box-shadow .06s } }
-    .sr-only{ position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스포츠 토토 시뮬레이터</title>
+<style>
+body { font-family: Arial, sans-serif; background:#f9f9f9; color:#111; display:flex; flex-direction:column; align-items:center; padding:20px; }
+h1 { margin-bottom:20px; }
+table { border-collapse: collapse; width: 100%; max-width:600px; margin-bottom:20px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align:center; }
+th { background:#eee; }
+select, button { padding:6px 12px; margin:4px; font-size:14px; }
+.result { margin-top:20px; font-weight:bold; }
+</style>
 </head>
 <body>
-  <main class="calculator" role="application" aria-label="계산기">
-    <div class="display" aria-hidden="false">
-      <div id="expr" class="expr" aria-live="polite"></div>
-      <div id="result" class="result" aria-live="polite">0</div>
-    </div>
+<h1>스포츠 토토 시뮬레이터</h1>
+<table>
+<thead>
+<tr><th>경기</th><th>승/무/패 선택</th></tr>
+</thead>
+<tbody id="matches"></tbody>
+</table>
+<button onclick="submitBet()">결과 확인</button>
+<div class="result" id="result"></div>
 
-    <div class="keys" role="group" aria-label="키패드">
-      <button class="fn" data-action="clear">C</button>
-      <button class="fn" data-action="back">⌫</button>
-      <button class="fn" data-action="percent">%</button>
-      <button class="op" data-value="÷">÷</button>
 
-      <button data-value="7">7</button>
-      <button data-value="8">8</button>
-      <button data-value="9">9</button>
-      <button class="op" data-value="×">×</button>
+<script>
+const games = [
+'팀A vs 팀B',
+'팀C vs 팀D',
+'팀E vs 팀F',
+'팀G vs 팀H',
+'팀I vs 팀J'
+];
 
-      <button data-value="4">4</button>
-      <button data-value="5">5</button>
-      <button data-value="6">6</button>
-      <button class="op" data-value="-">-</button>
 
-      <button data-value="1">1</button>
-      <button data-value="2">2</button>
-      <button data-value="3">3</button>
-      <button class="op" data-value="+">+</button>
+function createMatchRow(match, index){
+const tr = document.createElement('tr');
+const tdMatch = document.createElement('td');
+tdMatch.textContent = match;
+const tdSelect = document.createElement('td');
+const select = document.createElement('select');
+select.id = 'bet_'+index;
+['승','무','패'].forEach(optionText => {
+const option = document.createElement('option');
+option.value = optionText;
+option.textContent = optionText;
+select.appendChild(option);
+});
+tdSelect.appendChild(select);
+tr.appendChild(tdMatch);
+tr.appendChild(tdSelect);
+return tr;
+}
 
-      <button data-value="0" style="grid-column:span 2">0</button>
-      <button data-value=".">.</button>
-      <button class="equals" data-action="compute">=</button>
-    </div>
 
-    <p class="sr-only" id="hint">숫자와 연산자 키로 입력 가능. Enter로 계산, Backspace로 삭제.</p>
-  </main>
+function renderMatches(){
+const tbody = document.getElementById('matches');
+games.forEach((match,i)=>{
+tbody.appendChild(createMatchRow(match,i));
+});
+}
 
-  <script>
-    (function(){
-      const exprEl = document.getElementById('expr');
-      const resultEl = document.getElementById('result');
-      let expr = '';
 
-      function render(){
-        exprEl.textContent = expr || '';
-        try{
-          const v = evaluatePreview(expr);
-          resultEl.textContent = v === null ? '0' : String(v);
-        }catch(e){ resultEl.textContent = '오류' }
-      }
+function submitBet(){
+let correctCount = 0;
+let resultText = '';
+games.forEach((match,i)=>{
+const userBet = document.getElementById('bet_'+i).value;
+const outcomes = ['승','무','패'];
+const randomOutcome = outcomes[Math.floor(Math.random()*3)];
+if(userBet === randomOutcome) correctCount++;
+resultText += `${match}: 당신의 선택 ${userBet}, 실제 결과 ${randomOutcome}<br>`;
+});
+resultText += `<br>맞춘 경기 수: ${correctCount} / ${games.length}`;
+document.getElementById('result').innerHTML = resultText;
+}
 
-      function append(char){
-        if(char === '.'){
-          const parts = expr.split(/[^0-9.]/);
-          const last = parts[parts.length-1] || '';
-          if(last.includes('.')) return;
-        }
-        expr += char;
-        render();
-      }
 
-      function clearAll(){ expr = ''; render(); }
-      function backspace(){ expr = expr.slice(0,-1); render(); }
-
-      function percent(){
-        if(/\d$/.test(expr)) expr += '%';
-        render();
-      }
-
-      function evaluatePreview(input){
-        if(!input) return 0;
-        const t = sanitizeInput(input);
-        if(t === null) throw new Error('invalid');
-        return roundNumber(realEval(t));
-      }
-
-      function sanitizeInput(s){
-        s = s.replace(/×/g,'*').replace(/÷/g,'/');
-        s = s.replace(/(\d+(?:\.\d+)?)%/g,'($1/100)');
-        if(/[^0-9+\-*/().\s]/.test(s)) return null;
-        return s;
-      }
-
-      function realEval(exprStr){
-        return Function('return (' + exprStr + ')')();
-      }
-
-      function roundNumber(n){
-        if(!isFinite(n)) return null;
-        return Math.round(n * 1e12) / 1e12;
-      }
-
-      document.querySelector('.keys').addEventListener('click', e => {
-        const btn = e.target.closest('button');
-        if(!btn) return;
-        const action = btn.dataset.action;
-        const value = btn.dataset.value;
-        if(action === 'clear') return clearAll();
-        if(action === 'back') return backspace();
-        if(action === 'percent') return percent();
-        if(action === 'compute') return compute();
-        if(value) return append(value);
-      });
-
-      window.addEventListener('keydown', e => {
-        if(e.key >= '0' && e.key <= '9'){ append(e.key); e.preventDefault(); return }
-        if(e.key === '.') { append('.'); e.preventDefault(); return }
-        if(e.key === 'Enter' || e.key === '='){ compute(); e.preventDefault(); return }
-        if(e.key === 'Backspace'){ backspace(); e.preventDefault(); return }
-        if(e.key === 'Escape'){ clearAll(); e.preventDefault(); return }
-        if(['+','-','*','/','(',')'].includes(e.key)){ append(e.key); e.preventDefault(); return }
-        if(e.key === '%'){ percent(); e.preventDefault(); return }
-      });
-
-      function compute(){
-        if(!expr) return;
-        try{
-          const sanitized = sanitizeInput(expr);
-          if(sanitized === null) { resultEl.textContent = '오류'; return }
-          const value = realEval(sanitized);
-          expr = String(roundNumber(value));
-          render();
-        }catch(err){ resultEl.textContent = '오류' }
-      }
-
-      render();
-    })();
-  </script>
+renderMatches();
+</script>
 </body>
 </html>
